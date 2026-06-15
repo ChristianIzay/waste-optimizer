@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle représentant un point de collecte
+model CollectionPoint {
+  id              String   @id @default(uuid())
+  name            String
+  lat             Float
+  lng             Float
+  status          String   @default("vide") // 'plein' ou 'vide'
+  estimatedVolume Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  alerts          Alert[]
+}
+
+// Modèle représentant une alerte (quand un point devient "plein")
+model Alert {
+  id                String           @id @default(uuid())
+  collectionPointId String
+  triggeredAt       DateTime         @default(now())
+  volume            Int
+  resolved          Boolean          @default(false)
+  resolvedAt        DateTime?
+  
+  // Relation
+  collectionPoint   CollectionPoint  @relation(fields: [collectionPointId], references: [id], onDelete: Cascade)
+}
+
+// Modèle représentant un itinéraire calculé
+model Route {
+  id              String     @id @default(uuid())
+  name            String
+  createdAt       DateTime   @default(now())
+  totalDistance   Float      // Distance totale en km
+  totalTime       Float      // Temps estimé en minutes
+  pointsCount     Int        // Nombre de points dans l'itinéraire
+  
+  // Relations
+  routePoints     RoutePoint[]
+}
+
+// Modèle représentant les points d'un itinéraire (ordre de passage)
+model RoutePoint {
+  id         String   @id @default(uuid())
+  routeId    String
+  pointId    String
+  order      Int      // Ordre de passage dans l'itinéraire
+  distance   Float    // Distance depuis le point précédent (en km)
+  
+  // Relations
+  route      Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+}
