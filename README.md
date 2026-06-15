@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚛 Matadi Waste Optimizer
 
-## Getting Started
+**Plateforme d'optimisation de collecte de déchets pour la Ville de Matadi (RDC)**
 
-First, run the development server:
+Matadi Waste Optimizer est une application web intelligente conçue pour optimiser les tournées de collecte des déchets ménagers et industriels dans la ville de Matadi. Elle permet aux gestionnaires de visualiser l'état des points de collecte en temps réel et de calculer les itinéraires les plus efficaces pour les camions de collecte.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ Fonctionnalités Clés (MVP)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Cartographie Interactive :** Visualisation en temps réel de 27 points de collecte réels à Matadi sur une carte OpenStreetMap (via Leaflet).
+- **Données Géographiques Précises :** Gestion native des coordonnées UTM (Zone 33S) converties dynamiquement en coordonnées GPS (WGS84) grâce à `proj4js`.
+- **Simulation Dynamique :** État des bennes (Plein/Vide) généré aléatoirement à chaque chargement pour tester la robustesse du système.
+- **Double Moteur d'Optimisation :**
+  - 🐜 **ACO (Ant Colony Optimization) :** Algorithme méta-heuristique inspiré du comportement des fourmis pour trouver des solutions quasi-optimales.
+  -  **Plus Proche Voisin (Nearest Neighbor) :** Algorithme déterministe et rapide servant de baseline de comparaison.
+- **Tableau de Bord Analytique :** Statistiques sur les volumes estimés, distances parcourues et efficacité de l'optimisation.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🛠️ Stack Technique
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework :** Next.js 14+ (App Router)
+- **Langage :** TypeScript
+- **Style :** Tailwind CSS
+- **Cartographie :** React-Leaflet + OpenStreetMap
+- **Géolocalisation :** Proj4js (Conversion UTM vers WGS84)
+- **Calculs :** Algorithmes TSP (Voyageur de Commerce) implémentés from scratch
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Démarrage Rapide
 
-## Deploy on Vercel
+### Prérequis
+- Node.js (v18 ou supérieur)
+- npm ou yarn
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Clonez le dépôt et accédez au dossier du projet :
+   ```bash
+   cd matadi-waste-optimizer
+2.Installez les dépendances :
+  ```bash
+   npm install
+3. Lancez le serveur de développement :
+  ```bash
+  npm run dev
+
+4. Ouvrez http://localhost:3000 dans votre navigateur.
+
+📂 Architecture du Projet
+src/
+├── app/                  # Next.js App Router (Pages et Layouts)
+├── components/           # Composants UI (Carte, Tableaux de bord, Contrôles)
+├── data/                 # Données mockées (Points de collecte UTM de Matadi)
+├── lib/                  # Logique métier et algorithmes
+│   ├── aco.ts            # Implémentation de l'Optimisation par Colonie de Fourmis
+│   ├── nearestNeighbor.ts# Implémentation de l'algorithme du Plus Proche Voisin
+│   ── utils.ts          # Utilitaires (Formule de Haversine, etc.)
+── styles/               # Styles globaux Tailwind
+   
