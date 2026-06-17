@@ -28,9 +28,15 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 /**
  * Algorithme du Plus Proche Voisin (Nearest Neighbor)
  * Simple, rapide et déterministe
+ * 
+ * @param points - Points à visiter
+ * @param depotPosition - Position du dépôt de départ/retour (optionnel)
  */
-export const solveWithNearestNeighbor = (points: CollectionPoint[]): OptimizationResult => {
-  if (points.length < 2) return { path: points, distance: 0 };
+export const solveWithNearestNeighbor = (
+  points: CollectionPoint[],
+  depotPosition?: { lat: number; lng: number }
+): OptimizationResult => {
+  if (points.length < 1) return { path: points, distance: 0 };
 
   const visited = new Set<string>();
   const path: CollectionPoint[] = [];
@@ -62,6 +68,18 @@ export const solveWithNearestNeighbor = (points: CollectionPoint[]): Optimizatio
       totalDistance += nearestDistance;
       current = nearest;
     }
+  }
+
+  // Ajouter le retour au dépôt si spécifié
+  if (depotPosition && path.length > 0) {
+    const lastPoint = path[path.length - 1];
+    const returnDistance = haversineDistance(
+      lastPoint.lat,
+      lastPoint.lng,
+      depotPosition.lat,
+      depotPosition.lng
+    );
+    totalDistance += returnDistance;
   }
 
   return { path, distance: totalDistance };

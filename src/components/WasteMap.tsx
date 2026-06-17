@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import { Icon, DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CollectionPoint } from '@/data/mockLocations';
-import { OptimizedRoute, TruckRoute } from '@/lib/routeOptimizer';
+import { OptimizedRoute, TruckRoute, calculateUnoptimizedRouteWithReturn } from '@/lib/routeOptimizer';
 
 // Configuration des icônes pour les marqueurs
 const createMarkerIcon = (status: 'plein' | 'vide') => {
@@ -56,17 +56,33 @@ interface WasteMapProps {
   locations: CollectionPoint[];
   optimizedRoute?: OptimizedRoute | null;
   truckRoutes?: TruckRoute[] | null; // Nouvelles routes multi-camions
+  showUnoptimizedRoute?: boolean; // Afficher l'itinéraire non optimisé
 }
 
-export default function WasteMap({ locations, optimizedRoute, truckRoutes }: WasteMapProps) {
+export default function WasteMap({ locations, optimizedRoute, truckRoutes, showUnoptimizedRoute = false }: WasteMapProps) {
   // Centre de la carte : Matadi (coordonnées moyennes)
   const center: [number, number] = [-5.8205, 13.4598];
+  const centerObj = { lat: -5.8205, lng: 13.4598 };
   
   // Préparer les coordonnées de la polyline pour l'ancien itinéraire (single truck)
   const routeCoordinates: [number, number][] = optimizedRoute
     ? [
         center,
         ...optimizedRoute.steps.map((step) => [step.point.lat, step.point.lng] as [number, number]),
+      ]
+    : [];
+  
+  // Calculer l'itinéraire non optimisé si demandé
+  const fullPoints = locations.filter((loc) => loc.status === 'plein');
+  const unoptimizedRoute = showUnoptimizedRoute && fullPoints.length > 0
+    ? calculateUnoptimizedRouteWithReturn(fullPoints, centerObj)
+    : null;
+  
+  const unoptimizedCoordinates: [number, number][] = unoptimizedRoute
+    ? [
+        center,
+        ...unoptimizedRoute.steps.map((step) => [step.point.lat, step.point.lng] as [number, number]),
+        center, // Retour au dépôt
       ]
     : [];
   
@@ -84,6 +100,14 @@ export default function WasteMap({ locations, optimizedRoute, truckRoutes }: Was
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
+        {/* Ligne de l'itinéraire NON optimisé (ordre original avec retour au dépôt) */}
+        {showUnoptimizedRoute && unoptimizedCoordinates.length > 2 && (
+          <Polyline
+            positions={unoptimizedCoordinates}
+            pathOptions={{ color: '#f59e0b', weight: 4, opacity: 0.7, dashArray: '10, 5' }}
+          />
+        )}
+        
         {/* Ligne de l'itinéraire optimisé (mode single truck - legacy) */}
         {!truckRoutes && optimizedRoute && routeCoordinates.length > 1 && (
           <Polyline
@@ -97,6 +121,7 @@ export default function WasteMap({ locations, optimizedRoute, truckRoutes }: Was
           const coordinates: [number, number][] = [
             center, // Dépôt
             ...truckRoute.route.steps.map((step) => [step.point.lat, step.point.lng] as [number, number]),
+            center, // Retour au dépôt
           ];
           
           return (
@@ -211,6 +236,27 @@ export default function WasteMap({ locations, optimizedRoute, truckRoutes }: Was
             </Marker>
           );
         })}
+        
+        {/* Légende des itinéraires */}
+        {(truckRoutes || showUnoptimizedRoute) && (
+          <div className="leaflet-bottom leaflet-right" style={{ zIndex: 1000 }}>
+            <div className="bg-white p-3 rounded-lg shadow-md border border-gray-200 text-xs">
+              <p className="font-semibold mb-2 text-gray-900">Itinéraires :</p>
+              {showUnoptimizedRoute && (
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-1 bg-yellow-500 opacity-70" style={{ borderTop: '4px dashed #f59e0b' }} />
+                  <span className="text-yellow-700">Non optimisé (ordre original)</span>
+                </div>
+              )}
+              {truckRoutes && truckRoutes.map((truck) => (
+                <div key={truck.truckId} className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-1" style={{ backgroundColor: truck.color }} />
+                  <span>{truck.truckName}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </MapContainer>
     </div>
   );

@@ -23,6 +23,16 @@ export interface PSOResult {
 }
 
 /**
+ * Algorithme d'Optimisation par Essaim Particulaire (PSO)
+ * Adapté pour le problème du voyageur de commerce (TSP)
+ * Utilise une représentation discrète avec échange de positions
+ * 
+ * @param points - Points à visiter
+ * @param params - Paramètres de l'algorithme
+ * @param depotPosition - Position du dépôt de départ/retour (optionnel)
+ */
+
+/**
  * Calcul de la distance entre deux points (Haversine)
  */
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -52,6 +62,10 @@ const calculatePathDistance = (path: number[], distances: number[][]): number =>
  * Algorithme d'Optimisation par Essaim Particulaire (PSO)
  * Adapté pour le problème du voyageur de commerce (TSP)
  * Utilise une représentation discrète avec échange de positions
+ * 
+ * @param points - Points à visiter
+ * @param params - Paramètres de l'algorithme
+ * @param depotPosition - Position du dépôt de départ/retour (optionnel)
  */
 export const solveWithPSO = (
   points: CollectionPoint[],
@@ -61,10 +75,11 @@ export const solveWithPSO = (
     w: 0.7,
     c1: 2.0,
     c2: 2.0
-  }
+  },
+  depotPosition?: { lat: number; lng: number }
 ): PSOResult => {
   const n = points.length;
-  if (n < 2) return { bestPath: points, bestDistance: 0, iterations: 0 };
+  if (n < 1) return { bestPath: points, bestDistance: 0, iterations: 0 };
 
   // Calcul de la matrice des distances
   const distances = Array(n).fill(null).map((_, i) =>
@@ -138,9 +153,22 @@ export const solveWithPSO = (
   // Convertir les indices en points réels
   const bestPathPoints = globalBestPath.map(index => points[index]);
 
+  // Ajouter la distance de retour au dépôt si spécifié
+  let totalDistanceWithReturn = globalBestDistance;
+  if (depotPosition && bestPathPoints.length > 0) {
+    const lastPoint = bestPathPoints[bestPathPoints.length - 1];
+    const returnDistance = haversineDistance(
+      lastPoint.lat,
+      lastPoint.lng,
+      depotPosition.lat,
+      depotPosition.lng
+    );
+    totalDistanceWithReturn += returnDistance;
+  }
+
   return {
     bestPath: bestPathPoints,
-    bestDistance: globalBestDistance,
+    bestDistance: totalDistanceWithReturn,
     iterations: params.numIterations
   };
 };

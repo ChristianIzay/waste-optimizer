@@ -24,6 +24,15 @@ export interface ACOResult {
 }
 
 /**
+ * Algorithme d'Optimisation par Colonie de Fourmis (ACO)
+ * pour le problème du voyageur de commerce (TSP)
+ * 
+ * @param points - Points à visiter
+ * @param params - Paramètres de l'algorithme
+ * @param depotPosition - Position du dépôt de départ/retour (optionnel)
+ */
+
+/**
  * Calcul de la distance entre deux points (Haversine)
  */
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -41,6 +50,10 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 /**
  * Algorithme d'Optimisation par Colonie de Fourmis (ACO)
  * pour le problème du voyageur de commerce (TSP)
+ * 
+ * @param points - Points à visiter
+ * @param params - Paramètres de l'algorithme
+ * @param depotPosition - Position du dépôt de départ/retour (optionnel)
  */
 export const solveWithACO = (
   points: CollectionPoint[],
@@ -51,10 +64,11 @@ export const solveWithACO = (
     beta: 2,
     evaporationRate: 0.3,
     Q: 100
-  }
+  },
+  depotPosition?: { lat: number; lng: number }
 ): ACOResult => {
   const n = points.length;
-  if (n < 2) return { bestPath: points, bestDistance: 0, iterations: 0 };
+  if (n < 1) return { bestPath: points, bestDistance: 0, iterations: 0 };
 
   // Initialisation de la matrice des phéromones
   const pheromones = Array(n).fill(null).map(() => Array(n).fill(1.0));
@@ -112,9 +126,22 @@ export const solveWithACO = (
   // Convertir les indices en points réels
   const bestPathPoints = bestPath.map(index => points[index]);
 
+  // Ajouter la distance de retour au dépôt si spécifié
+  let totalDistanceWithReturn = bestDistance;
+  if (depotPosition && bestPathPoints.length > 0) {
+    const lastPoint = bestPathPoints[bestPathPoints.length - 1];
+    const returnDistance = haversineDistance(
+      lastPoint.lat,
+      lastPoint.lng,
+      depotPosition.lat,
+      depotPosition.lng
+    );
+    totalDistanceWithReturn += returnDistance;
+  }
+
   return {
     bestPath: bestPathPoints,
-    bestDistance,
+    bestDistance: totalDistanceWithReturn,
     iterations: params.numIterations
   };
 };

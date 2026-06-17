@@ -301,6 +301,62 @@ function convertBioResultToRoute(
 }
 
 /**
+ * Calcule l'itinéraire NON optimisé (ordre original des points) AVEC retour au dépôt
+ * Utilisé pour comparaison avec l'itinéraire optimisé
+ */
+export function calculateUnoptimizedRouteWithReturn(
+  pointsToVisit: CollectionPoint[],
+  depotPosition?: { lat: number; lng: number }
+): OptimizedRoute {
+  const start = depotPosition || { lat: -5.8205, lng: 13.4598 };
+  
+  if (pointsToVisit.length === 0) {
+    return { steps: [], totalDistance: 0, estimatedTime: 0 };
+  }
+
+  const steps: RouteStep[] = [];
+  let currentPosition = start;
+  let totalDistance = 0;
+  let order = 1;
+
+  // Visiter les points dans l'ordre original
+  for (const point of pointsToVisit) {
+    const distance = haversineDistance(
+      currentPosition.lat,
+      currentPosition.lng,
+      point.lat,
+      point.lng
+    );
+
+    steps.push({
+      point,
+      distanceFromPrevious: distance,
+      order: order++,
+    });
+
+    totalDistance += distance;
+    currentPosition = { lat: point.lat, lng: point.lng };
+  }
+
+  // Ajouter le retour au dépôt
+  const returnDistance = haversineDistance(
+    currentPosition.lat,
+    currentPosition.lng,
+    start.lat,
+    start.lng
+  );
+  totalDistance += returnDistance;
+
+  const estimatedTime = (totalDistance / 30) * 60;
+
+  return {
+    steps,
+    totalDistance: Math.round(totalDistance * 100) / 100,
+    estimatedTime: Math.round(estimatedTime),
+  };
+}
+
+/**
  * Fonction principale qui calcule l'itinéraire optimal avec l'algorithme choisi
  * 
  * @param pointsToVisit - Points de collecte pleins à visiter
@@ -316,24 +372,25 @@ export function calculateOptimalRoute(
   // Position par défaut : centre de Matadi
   const start = depotPosition || { lat: -5.8205, lng: 13.4598 };
 
-  // Calculer la distance non optimisée (baseline)
-  const unoptimizedDistance = calculateUnoptimizedDistance(start, pointsToVisit);
+  // Calculer la distance non optimisée (baseline) AVEC retour au dépôt
+  const unoptimizedRoute = calculateUnoptimizedRouteWithReturn(pointsToVisit, start);
+  const unoptimizedDistance = unoptimizedRoute.totalDistance;
 
   let optimizedRoute: OptimizedRoute;
 
   // Sélection de l'algorithme
   switch (algorithmType) {
     case 'aco': {
-      // Algorithme Colonie de Fourmis
-      const acoResult = solveWithACO(pointsToVisit);
+      // Algorithme Colonie de Fourmis (avec retour au dépôt)
+      const acoResult = solveWithACO(pointsToVisit, undefined, start);
       const route = convertBioResultToRoute(acoResult.bestPath, acoResult.bestDistance, start);
       optimizedRoute = twoOptImprovement(route);
       break;
     }
     
     case 'pso': {
-      // Algorithme Essaim Particulaire
-      const psoResult = solveWithPSO(pointsToVisit);
+      // Algorithme Essaim Particulaire (avec retour au dépôt)
+      const psoResult = solveWithPSO(pointsToVisit, undefined, start);
       const route = convertBioResultToRoute(psoResult.bestPath, psoResult.bestDistance, start);
       optimizedRoute = twoOptImprovement(route);
       break;
@@ -343,6 +400,18 @@ export function calculateOptimalRoute(
     default: {
       // Algorithme du Plus Proche Voisin (défaut)
       const initialRoute = nearestNeighborAlgorithm(start, pointsToVisit);
+      // Ajouter manuellement le retour au dépôt pour nearest-neighbor
+      if (initialRoute.steps.length > 0) {
+        const lastStep = initialRoute.steps[initialRoute.steps.length - 1];
+        const returnDistance = haversineDistance(
+          lastStep.point.lat,
+          lastStep.point.lng,
+          start.lat,
+          start.lng
+        );
+        initialRoute.totalDistance += returnDistance;
+        initialRoute.estimatedTime = Math.round((initialRoute.totalDistance / 30) * 60);
+      }
       optimizedRoute = twoOptImprovement(initialRoute);
       break;
     }
@@ -453,6 +522,86 @@ export function calculateMultiTruckRoutes(
       truckName: trucks[i].name,
       color: trucks[i].color,
       route: optimizedRoute,
+      pointsCount: assignedPoints[i].length,
+      totalVolume,
+    });
+  }
+  
+  return truckRoutes;
+}
+
+/**
+ * Répartit les points de collecte entre plusieurs camions SANS optimisation
+ * Utilise la MÊME répartition géographique que calculateMultiTruckRoutes,
+ * mais visite les points dans l'ordre original (non optimisé)
+ * 
+ * @param pointsToVisit - Tous les points à collecter
+ * @param depotPosition - Position du dépôt
+ * @param numTrucks - Nombre de camions disponibles (défaut 3)
+ * @returns Tableau des routes NON optimisées par camion (pour comparaison)
+ */
+export function calculateMultiTruckRoutesUnoptimized(
+  pointsToVisit: CollectionPoint[],
+  depotPosition?: { lat: number; lng: number },
+  numTrucks: number = 3
+): TruckRoute[] {
+  const start = depotPosition || { lat: -5.8205, lng: 13.4598 };
+  
+  // Configuration des camions (mêmes couleurs que la version optimisée)
+  const trucks = [
+    { id: 1, name: 'Camion A', color: '#ef4444' },   // Rouge
+    { id: 2, name: 'Camion B', color: '#3b82f6' },   // Bleu
+    { id: 3, name: 'Camion C', color: '#22c55e' },   // Vert
+  ];
+  
+  // Si moins de points que de camions, chaque point va à un camion différent
+  if (pointsToVisit.length <= numTrucks) {
+    return pointsToVisit.map((point, index) => {
+      const route = calculateUnoptimizedRouteWithReturn([point], start);
+      return {
+        truckId: trucks[index].id,
+        truckName: trucks[index].name,
+        color: trucks[index].color,
+        route,
+        pointsCount: 1,
+        totalVolume: point.estimatedVolume,
+      };
+    });
+  }
+  
+  // Étape 1 : MÊME répartition que la version optimisée (basée sur l'angle)
+  const assignedPoints: CollectionPoint[][] = Array.from({ length: numTrucks }, () => []);
+  
+  // Calculer l'angle de chaque point par rapport au dépôt
+  const pointsWithAngle = pointsToVisit.map((point) => {
+    const angle = Math.atan2(point.lat - start.lat, point.lng - start.lng);
+    return { point, angle };
+  });
+  
+  // Trier par angle (MÊME logique que calculateMultiTruckRoutes)
+  pointsWithAngle.sort((a, b) => a.angle - b.angle);
+  
+  // Distribuer en alternance pour équilibrer la charge (MÊME logique)
+  pointsWithAngle.forEach((item, index) => {
+    const truckIndex = index % numTrucks;
+    assignedPoints[truckIndex].push(item.point);
+  });
+  
+  // Étape 2 : Créer l'itinéraire de chaque camion SANS optimisation (ordre original)
+  const truckRoutes: TruckRoute[] = [];
+  
+  for (let i = 0; i < numTrucks; i++) {
+    if (assignedPoints[i].length === 0) continue;
+    
+    // Utiliser calculateUnoptimizedRouteWithReturn au lieu de calculateOptimalRoute
+    const unoptimizedRoute = calculateUnoptimizedRouteWithReturn(assignedPoints[i], start);
+    const totalVolume = assignedPoints[i].reduce((sum, p) => sum + p.estimatedVolume, 0);
+    
+    truckRoutes.push({
+      truckId: trucks[i].id,
+      truckName: trucks[i].name,
+      color: trucks[i].color,
+      route: unoptimizedRoute,
       pointsCount: assignedPoints[i].length,
       totalVolume,
     });

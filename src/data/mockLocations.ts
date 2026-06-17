@@ -58,6 +58,8 @@ const RAW_UTM_DATA = [
   { numero: '25', name: 'Rond-point Londé', utmX: 329741.1967, utmY: 9355684.1244 },
   { numero: '26', name: 'Nkalankala', utmX: 329203.4145, utmY: 9355602.6303 },
   { numero: '27', name: 'Ciné palace', utmX: 329466.5971, utmY: 9355252.0483 },
+  { numero: '28', name: 'Ciné palace', utmX: 329466.5971, utmY: 9355252.0483 },
+  
 ];
 
 /**
